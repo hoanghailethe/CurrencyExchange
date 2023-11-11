@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Currency Exchange Chart</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Currency Exchange Chart</h1>
+        <div class="chart-container">
+            <div class="options-section">
+                <label for="currencyPair">Select Currency Pair:</label>
+                <select id="currencyPair">
+                    <!-- Add currency pair options dynamically -->
+                </select>
+                <label for="timeFrame">Select Time Frame:</label>
+                <select id="timeFrame">
+                    <option value="daily">Daily (120 days)</option>
+                    <option value="monthly">Monthly (60 months)</option>
+                    <option value="yearly">Yearly (20 years)</option>
+                </select>
+                <button onclick="fetchAndRenderChart()">Generate Chart</button>
+            </div>
+            <div class="chart-section">
+                <canvas id="exchangeChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

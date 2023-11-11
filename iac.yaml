@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Currency Converter and Exchange Rate Time Series Project"
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: "Name for the S3 bucket hosting the static website"
+
+Resources:
+  # S3 Bucket for Hosting the Static Website
+  WebsiteBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref BucketName
+      WebsiteConfiguration:
+        IndexDocument: "index.html"
+        ErrorDocument: "error.html"
+
+  # API Gateway
+  ApiGateway:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: "CurrencyApi"
+
+  # Lambda Function for Currency Conversion
+  ConvertCurrencyFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "index.handler"
+      Role: !GetAtt ConvertCurrencyRole.Arn
+      FunctionName: "ConvertCurrencyFunction"
+      Runtime: "nodejs14.x"
+      Timeout: 10
+      MemorySize: 128
+      Code:
+        S3Bucket: !Ref WebsiteBucket
+        S3Key: "lambda/convert-currency.zip"
+
+  # Lambda Function for Time Series Exchange Rate
+  TimeSeriesFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Handler: "index.handler"
+      Role: !GetAtt TimeSeriesRole.Arn
+      FunctionName: "TimeSeriesFunction"
+      Runtime: "nodejs14.x"
+      Timeout: 10
+      MemorySize: 128
+      Code:
+        S3Bucket: !Ref WebsiteBucket
+        S3Key: "lambda/time-series.zip"
+
+  # IAM Role for Lambda Functions
+  ConvertCurrencyRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "ConvertCurrencyPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+
+  TimeSeriesRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "TimeSeriesPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"

@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Serverless Currency Converter Project"
+
+Parameters:
+  TableName:
+    Type: String
+    Description: "Name for the DynamoDB table"
+    Default: "CurrencyExchangeTable"
+
+Resources:
+  # DynamoDB Table
+  CurrencyExchangeTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  # IAM Role for Lambda Functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "LambdaExecutionPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "dynamodb:PutItem"
+                  - "dynamodb:GetItem"
+                Resource: !GetAtt CurrencyExchangeTable.Arn
+
+  # Lambda Functions
+  ConvertCurrencyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      FunctionName: "ConvertCurrencyFunction"
+      Runtime: "nodejs14.x"
+      Timeout: 10
+      MemorySize: 128
+      Code:
+        S3Bucket: "your-s3-bucket-name"  # Replace with your S3 bucket name
+        S3Key: "lambda/convert-currency.zip"
+
+  TimeSeriesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      FunctionName: "TimeSeriesFunction"
+      Runtime: "nodejs14.x"
+      Timeout: 10
+      MemorySize: 128
+      Code:
+        S3Bucket: "your-s3-bucket-name"  # Replace with your S3 bucket name
+        S3Key: "lambda/time-series.zip"
+
+  UpdateExchangeRateFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      FunctionName: "UpdateExchangeRateFunction"
+      Runtime: "nodejs14.x"
+      Timeout: 10
+      MemorySize: 128
+      Code:
+        S3Bucket: "your-s3-bucket-name"  # Replace with your S3 bucket name
+        S3Key: "lambda/update-exchange-rate.zip"
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: "CurrencyApi"
+
+  # API Gateway Resources and Methods
+  CurrencyResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: "currency"
+
+  ConvertCurrencyMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      HttpMethod: "POST"
+      ResourceId: !Ref CurrencyResource
+      RestApiId: !Ref ApiGateway
+      Integration:
+        IntegrationHttpMethod: "POST"
+        Type: "AWS_PROXY"
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+          - LambdaFunctionArn: !GetAtt ConvertCurrencyFunction.Arn
+      MethodResponses:
+        - StatusCode: 200
+
+  TimeSeriesMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      HttpMethod: "GET"
+      ResourceId: !Ref CurrencyResource
+      RestApiId: !Ref ApiGateway
+      Integration:
+        IntegrationHttpMethod: "GET"
+        Type: "AWS_PROXY"
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+          - LambdaFunctionArn: !GetAtt TimeSeriesFunction.Arn
+      MethodResponses:
+        - StatusCode: 200
+
+  UpdateExchangeRateMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      HttpMethod: "POST"
+      ResourceId: !Ref CurrencyResource
+      RestApiId: !Ref ApiGateway
+      Integration:
+        IntegrationHttpMethod: "POST"
+        Type: "AWS_PROXY"
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+          - LambdaFunctionArn: !GetAtt UpdateExchangeRateFunction.Arn
+      MethodResponses:
+        - StatusCode: 200
+
+  # CloudWatch Log Group
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/aws/lambda/ConvertCurrencyFunction"
+
+Outputs:
+  ApiEndpoint:
+    Description: "URL of the API endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
